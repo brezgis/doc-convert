@@ -138,6 +138,10 @@ doc-convert full-book.md -f epub --title "Book Title" --author "Author Name"
 | [argos-translate](https://github.com/argosopentech/argos-translate) | Local neural translation | Only for `--translate` |
 | [langdetect](https://github.com/Mimino666/langdetect) | Language detection | Only for `--translate` |
 
+## Made by
+
+Anna Brezgis and Claude — [brezgis.com](https://brezgis.com)
+
 ## License
 
 MIT
