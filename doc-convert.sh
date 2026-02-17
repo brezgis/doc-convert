@@ -1,4 +1,6 @@
 #!/bin/bash
+# Ensure ~/.local/bin is on PATH (for pypandoc's bundled pandoc, pip-installed tools)
+export PATH="$HOME/.local/bin:$PATH"
 # doc-convert: Convert documents between formats using Marker OCR + Pandoc
 #
 # Usage:
@@ -21,10 +23,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Marker venv path — set DOC_CONVERT_VENV or edit this default
-MARKER_VENV="${DOC_CONVERT_VENV:-${HOME}/marker-env}"
-
+MARKER_VENV="/home/anna/clawd/marker-env"
 CONFIG_DIR="${HOME}/.config/doc-convert"
 CONFIG_FILE="${CONFIG_DIR}/settings.conf"
 
@@ -68,9 +67,6 @@ usage() {
     echo "  doc-convert russian-paper.pdf --translate      # Russian PDF → English markdown"
     echo "  doc-convert article.pdf -f epub --translate    # Auto-detect → English EPUB"
     echo "  doc-convert slides.pptx -f md                 # PowerPoint → Markdown"
-    echo ""
-    echo "Environment:"
-    echo "  DOC_CONVERT_VENV         Path to marker-pdf virtualenv (default: ~/marker-env)"
     echo ""
     echo "Settings: ${CONFIG_FILE}"
     echo "  Edit to change default target language, output format, etc."
@@ -144,16 +140,6 @@ if [[ ! -f "$INPUT" ]]; then
     exit 1
 fi
 
-# Check marker venv exists
-if [[ ! -d "$MARKER_VENV" ]]; then
-    echo -e "${RED}Error: Marker virtualenv not found at ${MARKER_VENV}${NC}"
-    echo -e "Set DOC_CONVERT_VENV to your marker-pdf venv path, or install:"
-    echo -e "  python3 -m venv ~/marker-env"
-    echo -e "  source ~/marker-env/bin/activate"
-    echo -e "  pip install marker-pdf pypandoc"
-    exit 1
-fi
-
 # Derive output filename
 BASENAME="$(basename "$INPUT")"
 BASENAME_NOEXT="${BASENAME%.*}"
@@ -194,11 +180,13 @@ try:
             if text:
                 lines = [l.strip() for l in text.split('\n') if l.strip()]
                 if not title and lines:
+                    # First substantial line is often the title
                     for line in lines:
                         if len(line) > 3 and len(line) < 200:
                             title = line
                             break
                 if not author and len(lines) > 1:
+                    # Second line or "by" line is often the author
                     for line in lines[1:5]:
                         if line.lower().startswith("by "):
                             author = line[3:].strip()
@@ -213,6 +201,7 @@ try:
     if not title:
         import os
         fname = os.path.splitext(os.path.basename(sys.argv[1]))[0]
+        # Clean up common filename patterns
         title = fname.replace('_', ' ').replace('-', ' ')
 
     print(f"TITLE={title}")
@@ -254,6 +243,8 @@ fi
 marker_single "${MARKER_ARGS[@]}" 2>&1 | grep -v "^$" | while IFS= read -r line; do
     echo -e "  ${YELLOW}marker:${NC} $line"
 done
+# Check if marker_single actually produced output (pipe swallows exit codes)
+# The check below (MARKER_OUTPUT) handles this.
 
 # Find marker output
 MARKER_OUTPUT=$(find "$TMPDIR" -type f \( -name "*.md" -o -name "*.html" \) | head -1)
@@ -283,9 +274,10 @@ with open(input_file, 'r') as f:
 # Auto-detect source language
 try:
     from langdetect import detect
-    src_lang = detect(text[:5000])
+    src_lang = detect(text[:5000])  # detect from first ~5000 chars
     print(f"  Detected language: {src_lang}")
 except ImportError:
+    # Fallback: try with argos
     src_lang = None
     print("  Warning: langdetect not installed, trying argos detection...")
 
@@ -296,12 +288,14 @@ if src_lang == target_lang:
 import argostranslate.package
 import argostranslate.translate
 
+# Ensure language package is installed
 argostranslate.package.update_package_index()
 available = argostranslate.package.get_available_packages()
 
 if src_lang:
     pkg = next((p for p in available if p.from_code == src_lang and p.to_code == target_lang), None)
 else:
+    # If we couldn't detect, try common languages
     for try_lang in ['ru', 'es', 'fr', 'de', 'zh', 'ja', 'ko', 'pt', 'it']:
         pkg = next((p for p in available if p.from_code == try_lang and p.to_code == target_lang), None)
         if pkg:
