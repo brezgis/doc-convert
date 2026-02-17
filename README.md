@@ -118,6 +118,45 @@ cat chunk_*.md > full-book.md
 doc-convert full-book.md -f epub --title "Book Title" --author "Author Name"
 ```
 
+## Remote usage
+
+If you have a GPU server but work from a laptop, you can wrap doc-convert in a shell function that handles the round trip:
+
+```bash
+# Add to your .bashrc / .zshrc
+nconvert() {
+    local file="$1"
+    local fmt="${2:-epub}"
+    local name=$(basename "$file")
+    local base="${name%.*}"
+    
+    if [[ -z "$file" ]]; then
+        echo "Usage: nconvert <file> [format]"
+        echo "Formats: epub, md, html, txt, docx"
+        return 1
+    fi
+    
+    echo "📤 Sending $name to server..."
+    scp -r "$file" myserver:~/drop/ || { echo "Failed to send file"; return 1; }
+    
+    echo "⚙️  Converting to $fmt..."
+    ssh myserver "bash ~/doc-convert.sh \"\$HOME/drop/$name\" -f $fmt" || { echo "Conversion failed"; return 1; }
+    
+    echo "📥 Fetching result..."
+    scp "myserver:~/drop/${base}.${fmt}" . || { echo "Failed to fetch result"; return 1; }
+    
+    echo "✅ Done: $base.$fmt"
+}
+```
+
+Replace `myserver` with your SSH host alias. Then from your laptop:
+
+```bash
+nconvert "Scanned Book.pdf" epub
+```
+
+The PDF goes up, gets OCR'd on the GPU, and the EPUB comes back — all in one command.
+
 ## Supported formats
 
 | Input | Output |
