@@ -23,7 +23,7 @@ export PATH="$HOME/.local/bin:$PATH"
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MARKER_VENV="$PROJECT_ROOT/marker-env"
+MARKER_VENV="${MARKER_VENV:-$(dirname "$0")/../marker-env}"
 CONFIG_DIR="${HOME}/.config/doc-convert"
 CONFIG_FILE="${CONFIG_DIR}/settings.conf"
 
