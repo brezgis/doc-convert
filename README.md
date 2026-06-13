@@ -1,32 +1,35 @@
 # doc-convert
 
-A CLI tool for converting documents (especially scanned PDFs) to markdown, EPUB, HTML, DOCX, or plain text — using GPU-powered neural OCR. Optional auto-translate to any language.
+A CLI tool for converting documents (especially scanned PDFs) to markdown, EPUB, HTML, DOCX, or plain text -- using GPU-powered neural OCR. Optional auto-translate to any language.
 
 Everything runs locally. Nothing leaves your machine.
 
 ## What it does
 
-1. **OCR** — Extracts text from PDFs (including scanned/image-only) using [Marker](https://github.com/VikParuchuri/marker) with [Surya](https://github.com/VikParuchuri/surya) neural OCR on GPU
-2. **Translate** *(optional)* — Auto-detects source language and translates to your target language using [Argos Translate](https://github.com/argosopentech/argos-translate) (local neural MT)
-3. **Convert** — Outputs to your desired format via [Pandoc](https://pandoc.org/) with auto-detected metadata (title, author), table of contents, and proper styling
+1. **OCR** -- Extracts text from PDFs (including scanned/image-only) using [Marker](https://github.com/VikParuchuri/marker) with [Surya](https://github.com/VikParuchuri/surya) neural OCR on GPU
+2. **Translate** *(optional)* -- Auto-detects source language and translates to your target language using [Argos Translate](https://github.com/argosopentech/argos-translate) (local neural MT)
+3. **Convert** -- Outputs to your desired format via [Pandoc](https://pandoc.org/) with auto-detected metadata (title, author), table of contents, and proper styling
 
 ## Quick start
 
 ```bash
-# PDF → Markdown (default)
+# PDF -> Markdown (default)
 doc-convert paper.pdf
 
-# Scanned book → EPUB with OCR
+# Scanned book -> EPUB with OCR
 doc-convert book.pdf -f epub --ocr
 
-# Russian PDF → English markdown
+# Russian PDF -> English markdown
 doc-convert russian-paper.pdf --translate
 
-# Auto-detect language → English EPUB
+# Auto-detect language -> English EPUB
 doc-convert article.pdf -f epub --translate
 
 # Force OCR + LLM-enhanced accuracy
 doc-convert old-scan.pdf -f epub --ocr --llm
+
+# Check your environment
+doc-convert doctor
 ```
 
 ## Installation
@@ -55,11 +58,19 @@ chmod +x doc-convert.sh
 cp doc-convert.sh ~/.local/bin/doc-convert
 ```
 
-By default, the script looks for the marker venv at `~/marker-env`. Override with:
+### Venv detection
 
-```bash
-export DOC_CONVERT_VENV=/path/to/your/marker-env
-```
+The script finds the Marker virtualenv automatically, checking these locations in order:
+
+1. `$DOC_CONVERT_VENV` -- set this to override everything
+2. `$MARKER_VENV` -- legacy env var, still honored
+3. `~/marker-env` -- the default if you follow the install instructions above
+4. `<script-dir>/marker-env` -- co-located with the script
+5. If `marker_single` is already on your PATH (or a venv is already active), the script uses it directly
+
+If none of these work, the script prints exactly what to do.
+
+Run `doc-convert doctor` after installing to verify everything is set up correctly.
 
 ## Options
 
@@ -75,6 +86,18 @@ export DOC_CONVERT_VENV=/path/to/your/marker-env
 | `--author AUTHOR` | Set author name (auto-detected if not set) |
 | `--config` | Show/edit persistent settings |
 | `-h, --help` | Show help |
+
+## Subcommands
+
+### `doctor` / `--check`
+
+Verifies your environment -- checks for python3, the Marker venv, `marker_single`, Pandoc (and which EPUB split flag it supports), PyMuPDF, pypandoc, argos-translate, langdetect, and GPU availability. Reports what's present, what's missing, and how to fix it.
+
+Works with no GPU and no venv installed -- it just tells you what you're missing.
+
+```bash
+doc-convert doctor
+```
 
 ## Configuration
 
@@ -92,11 +115,15 @@ Run `doc-convert --config` to create or view the config file.
 
 ## How it works
 
-**Marker** is the heavy lifter — it uses Surya's neural OCR models to extract text from PDFs, handling scanned documents, complex layouts, tables, and equations. It runs on GPU (CUDA) for speed.
+**Marker** is the heavy lifter -- it uses Surya's neural OCR models to extract text from PDFs, handling scanned documents, complex layouts, tables, and equations. It runs on GPU (CUDA) for speed.
 
-**Pandoc** handles format conversion. For EPUBs, doc-convert auto-detects title and author from PDF metadata (or first-page text), generates a table of contents, and applies clean typography.
+**Pandoc** handles format conversion. For EPUBs, doc-convert auto-detects title and author from PDF metadata (or first-page text), generates a table of contents, and applies clean typography. The script auto-detects which EPUB split flag your Pandoc version supports (`--split-level` on newer versions, `--epub-chapter-level` on older ones).
 
-**Argos Translate** provides local neural machine translation between 30+ language pairs. No API keys, no cloud services.
+**Argos Translate** provides local neural machine translation between 30+ language pairs. No API keys, no cloud services. Translation runs block-by-block (split on blank lines) and skips fenced code blocks to preserve document structure.
+
+### Image handling
+
+Marker often extracts images from PDFs alongside the text. For markdown, HTML, and text output, these images are copied to a `<filename>_images/` directory next to the output file, and references are rewritten to point there. For EPUB and DOCX, Pandoc embeds images directly into the output file.
 
 ### Large scanned PDFs
 
@@ -124,38 +151,38 @@ If you have a GPU server but work from a laptop, you can wrap doc-convert in a s
 
 ```bash
 # Add to your .bashrc / .zshrc
-nconvert() {
+gpu_convert() {
     local file="$1"
     local fmt="${2:-epub}"
     local name=$(basename "$file")
     local base="${name%.*}"
-    
+
     if [[ -z "$file" ]]; then
-        echo "Usage: nconvert <file> [format]"
+        echo "Usage: gpu_convert <file> [format]"
         echo "Formats: epub, md, html, txt, docx"
         return 1
     fi
-    
-    echo "📤 Sending $name to server..."
+
+    echo "Sending $name to server..."
     scp -r "$file" myserver:~/drop/ || { echo "Failed to send file"; return 1; }
-    
-    echo "⚙️  Converting to $fmt..."
+
+    echo "Converting to $fmt..."
     ssh myserver "bash ~/doc-convert.sh \"\$HOME/drop/$name\" -f $fmt" || { echo "Conversion failed"; return 1; }
-    
-    echo "📥 Fetching result..."
+
+    echo "Fetching result..."
     scp "myserver:~/drop/${base}.${fmt}" . || { echo "Failed to fetch result"; return 1; }
-    
-    echo "✅ Done: $base.$fmt"
+
+    echo "Done: $base.$fmt"
 }
 ```
 
 Replace `myserver` with your SSH host alias. Then from your laptop:
 
 ```bash
-nconvert "Scanned Book.pdf" epub
+gpu_convert "Scanned Book.pdf" epub
 ```
 
-The PDF goes up, gets OCR'd on the GPU, and the EPUB comes back — all in one command.
+The PDF goes up, gets OCR'd on the GPU, and the EPUB comes back.
 
 ## Supported formats
 
@@ -172,14 +199,15 @@ The PDF goes up, gets OCR'd on the GPU, and the EPUB comes back — all in one c
 | Package | Purpose | Required? |
 |---------|---------|-----------|
 | [marker-pdf](https://github.com/VikParuchuri/marker) | OCR + text extraction | Yes |
-| [pypandoc](https://github.com/JessicaTegworthy/pypandoc) | Format conversion | Yes |
-| [PyMuPDF](https://pymupdf.readthedocs.io/) | PDF metadata extraction | Yes |
+| [pypandoc](https://github.com/JessicaTegworthy/pypandoc) | Format conversion (or system Pandoc) | Recommended |
+| [PyMuPDF](https://pymupdf.readthedocs.io/) | PDF metadata extraction | Recommended |
+| [Pandoc](https://pandoc.org/) | Format conversion | Yes (via pypandoc or system) |
 | [argos-translate](https://github.com/argosopentech/argos-translate) | Local neural translation | Only for `--translate` |
 | [langdetect](https://github.com/Mimino666/langdetect) | Language detection | Only for `--translate` |
 
 ## Made by
 
-Anna Brezgis and Claude — [brezgis.com](https://brezgis.com)
+Anna Brezgis and Claude -- [brezgis.com](https://brezgis.com)
 
 ## License
 
