@@ -4,7 +4,7 @@
 # Wraps Marker (neural OCR), Argos Translate (local MT), and Pandoc.
 # Everything runs locally. Nothing leaves the machine.
 #
-# Copyright (c) 2025 Anna Brezgis — MIT License
+# Copyright (c) 2026 Anna Brezgis — MIT License
 
 set -euo pipefail
 
@@ -246,7 +246,7 @@ cmd_doctor() {
         ok_count=$((ok_count + 1))
     else
         detail "  [--]  argos-translate not installed (only needed for --translate)"
-        echo "        Install: pip install argos-translate"
+        echo "        Install: pip install argostranslate"
     fi
 
     # langdetect (optional)
@@ -440,7 +440,7 @@ try:
     import argostranslate.translate
 except ImportError:
     print("  Error: argos-translate not installed.", file=sys.stderr)
-    print("  Install it:  pip install argos-translate", file=sys.stderr)
+    print("  Install it:  pip install argostranslate", file=sys.stderr)
     sys.exit(1)
 
 # --- Ensure language pack is available ---

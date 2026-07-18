@@ -43,6 +43,10 @@ doc-convert doctor
 ### Setup
 
 ```bash
+# Get the script
+git clone https://github.com/brezgis/doc-convert.git
+cd doc-convert
+
 # Create a virtualenv for marker-pdf
 python3 -m venv ~/marker-env
 source ~/marker-env/bin/activate
@@ -51,7 +55,7 @@ source ~/marker-env/bin/activate
 pip install marker-pdf pypandoc PyMuPDF
 
 # Optional: translation support
-pip install argos-translate langdetect
+pip install argostranslate langdetect
 
 # Install the script
 chmod +x doc-convert.sh
@@ -141,8 +145,9 @@ done
 # Merge the markdown
 cat chunk_*.md > full-book.md
 
-# Convert merged output to EPUB
-doc-convert full-book.md -f epub --title "Book Title" --author "Author Name"
+# Convert merged markdown to EPUB with Pandoc directly
+# (doc-convert always runs Marker on its input, and Marker doesn't read markdown)
+pandoc full-book.md -o full-book.epub --toc --metadata title="Book Title" --metadata author="Author Name"
 ```
 
 ## Remote usage
@@ -186,23 +191,19 @@ The PDF goes up, gets OCR'd on the GPU, and the EPUB comes back.
 
 ## Supported formats
 
-| Input | Output |
-|-------|--------|
-| PDF (native text) | Markdown |
-| PDF (scanned/image) | EPUB |
-| PPTX, DOCX | HTML |
-| Any Marker-supported format | Plain text |
-| | DOCX |
+**In:** anything Marker reads -- PDF (native or scanned), images, PPTX, DOCX, XLSX, HTML, EPUB.
+
+**Out:** Markdown, EPUB, HTML, plain text, DOCX.
 
 ## Dependencies
 
 | Package | Purpose | Required? |
 |---------|---------|-----------|
 | [marker-pdf](https://github.com/VikParuchuri/marker) | OCR + text extraction | Yes |
-| [pypandoc](https://github.com/JessicaTegworthy/pypandoc) | Format conversion (or system Pandoc) | Recommended |
+| [pypandoc](https://github.com/JessicaTegner/pypandoc) | Format conversion (or system Pandoc) | Recommended |
 | [PyMuPDF](https://pymupdf.readthedocs.io/) | PDF metadata extraction | Recommended |
 | [Pandoc](https://pandoc.org/) | Format conversion | Yes (via pypandoc or system) |
-| [argos-translate](https://github.com/argosopentech/argos-translate) | Local neural translation | Only for `--translate` |
+| [argostranslate](https://github.com/argosopentech/argos-translate) | Local neural translation | Only for `--translate` |
 | [langdetect](https://github.com/Mimino666/langdetect) | Language detection | Only for `--translate` |
 
 ## Made by
